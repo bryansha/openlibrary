@@ -119,6 +119,12 @@ def cached_work_authors_and_subjects(work_id):
 @public
 def compose_ia_url(limit=None, page=1, subject=None, query=None, work_id=None,
                    _type=None, sorts=None, advanced=True):
+    """This needs to be exposed by a generalized API endpoint within
+    plugins/openlibrary/api/browse which lets lazy-load more items for
+    the homepage carousel and support the upcoming /browse view
+    (backed by archive.org search, so we don't have to send users to
+    archive.org to see more books)
+    """
     from openlibrary.plugins.openlibrary.home import CAROUSELS_PRESETS
     query = CAROUSELS_PRESETS[query] if query in CAROUSELS_PRESETS else query
     q = 'openlibrary_work:(*)'
@@ -179,14 +185,14 @@ def compose_ia_url(limit=None, page=1, subject=None, query=None, work_id=None,
                       (sorts if sorts and isinstance(sorts, list)
                        else [''])]))
     rows = limit or DEFAULT_IA_RESULTS
-    url = "https://%s/advancedsearch.php?q=%s&%s&%s&rows=%s&page=%s&output=json" % (
+    url = "http://%s/advancedsearch.php?q=%s&%s&%s&rows=%s&page=%s&output=json" % (
         config_bookreader_host, q, encoded_fields, sort, str(rows), str(page))
     return url
 
 def get_random_available_ia_edition():
     """uses archive advancedsearch to raise a random book"""
     try:
-        url=("https://%s/advancedsearch.php?q=_exists_:openlibrary_work"\
+        url=("http://%s/advancedsearch.php?q=_exists_:openlibrary_work"\
              "+AND+loans__status__status:AVAILABLE"\
              "&fl=identifier,openlibrary_edition,loans__status__status"\
              "&output=json&rows=1&sort[]=random" % (config_bookreader_host))
@@ -197,7 +203,7 @@ def get_random_available_ia_edition():
         return None
 
 def get_available(limit=None, page=1, subject=None, query=None,
-                  work_id=None, _type=None, sorts=None):
+                  work_id=None, _type=None, sorts=None, url=None):
     """Experimental. Retrieves a list of available editions from
     archive.org advancedsearch which are available, in the inlibrary
     collection, and optionally apart of an `openlibrary_subject`.
@@ -206,8 +212,9 @@ def get_available(limit=None, page=1, subject=None, query=None,
     used in such things as 'Staff Picks' carousel to retrieve a list
     of unique available books.
     """
-    url = compose_ia_url(limit=limit, page=page, subject=subject, query=query,
-                         work_id=work_id, _type=_type, sorts=sorts)
+    url = url or compose_ia_url(
+        limit=limit, page=page, subject=subject, query=query,
+        work_id=work_id, _type=_type, sorts=sorts)
     try:
         request = urllib2.Request(url=url)
 
